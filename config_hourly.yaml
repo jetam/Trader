@@ -1,0 +1,83 @@
+# Hourly trading profile. Use with:  python -m trader -c config_hourly.yaml <command>
+# Same code as the daily system; separate data, models, reports and logs.
+# Window lengths are in bars: 7 hourly bars per session (9:30, 10:30, ... 15:30; the last is 30 min).
+
+data:
+  tickers: [AAPL, MSFT, NVDA, AMD, GOOGL, META, AMZN, AVGO]
+  market: {broad: SPY, sector: QQQ, vol: ^VIX, rates: ^TNX}
+  interval: 1h
+  history_days: 730      # Yahoo serves roughly the last 730 days of hourly bars
+  dir: data/hourly
+
+features:
+  lookback: 70           # 10 trading days of hourly bars
+  horizon: 1             # predict the next bar's return
+  execution: next_open   # decide at the bar close, trade at the next bar's open
+
+model:
+  d_model: 64
+  n_heads: 4
+  n_layers: 2
+  ff_mult: 2
+  dropout: 0.2
+
+training:
+  epochs: 25
+  batch_size: 512
+  lr: 0.0005
+  weight_decay: 0.01
+  patience: 4
+  val_fraction: 0.15
+  cls_weight: 0.5
+  ensemble: 1
+  seed: 7
+  device: auto
+  threads: 8
+
+walkforward:
+  min_train_months: 12   # first year is training only
+  step_months: 1         # then retrain every month and predict the next month
+  embargo_days: 7        # gap in bars (one session) between training and test
+
+strategy:
+  allow_short: false
+  prob_threshold: 0.52
+  min_edge: 0.0
+  target_vol: 0.15
+  max_position: 0.20
+  max_gross: 1.0
+  min_trade: 0.05        # wider no-trade band: hourly signals flip often and costs add up fast
+  cov_lookback: 140      # 20 sessions
+  daily_loss_limit: 0.02 # applied per bar on hourly data
+  max_drawdown: 0.15
+  cooldown_days: 70      # in bars = 10 sessions
+
+optimizer:
+  trader: rules          # 'rules' = threshold strategy above; 'optimal' = OptimalTrader
+  risk_aversion: 2.0     # OptimalTrader: variance penalty (higher = smaller positions)
+  holding_periods: 5     # expected holding period; trading cost is spread over it
+  calib_window: 500      # periods of the model's past predictions used to calibrate it
+  recalibrate_every: 20  # backtests: periods between recalibrations
+  shrink_k: 4            # keep t^2/(t^2+k) of the calibrated slope (weak evidence -> small bets)
+  use_drift: false       # also bet on the average realised return (adds market exposure, not skill)
+
+costs:
+  commission_bps: 1.0
+  slippage_bps: 4.0
+  borrow_bps_annual: 50
+
+broker:
+  host: 127.0.0.1
+  port: 7497
+  client_id: 18          # different from the daily system so both can connect at once
+  mode: paper
+  max_order_value: 25000
+  max_capital: null      # REAL MONEY: size positions on at most this much equity, e.g. 2000
+  limit_offset_bps: null # e.g. 30 -> limit orders 0.3% through the last price instead of market orders
+  data_source: yfinance
+
+paths:
+  artifacts: artifacts/hourly
+  reports: reports/hourly
+  models: models/hourly
+  logs: logs/hourly

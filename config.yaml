@@ -1,0 +1,85 @@
+# Trader configuration. Every key is optional; defaults live in trader/config.py.
+
+data:
+  tickers: [AAPL, MSFT, NVDA, AMD, GOOGL, META, AMZN, AVGO]
+  # Market context series. Roles are fixed; symbols are Yahoo Finance tickers.
+  market: {broad: SPY, sector: QQQ, vol: ^VIX, rates: ^TNX}
+  start: "2010-01-01"
+  end: null              # null = up to the last completed session
+  dir: data/daily
+
+features:
+  lookback: 60           # days of history the transformer sees per sample
+  horizon: 1             # predict the return over the next `horizon` days
+  # When a decision made with data up to close t is executed:
+  #   next_open -> market-on-open order at t+1 (realistic: run after the close)
+  #   close     -> at close t (optimistic; needs a market-on-close order before the close)
+  execution: next_open
+
+model:
+  d_model: 64
+  n_heads: 4
+  n_layers: 2
+  ff_mult: 2
+  dropout: 0.2
+
+training:
+  epochs: 25
+  batch_size: 512
+  lr: 0.0005
+  weight_decay: 0.01
+  patience: 4            # early stopping on the validation loss
+  val_fraction: 0.15     # last 15% of training dates are used for early stopping
+  cls_weight: 0.5        # weight of the up/down (BCE) loss vs the return (Huber) loss
+  ensemble: 1            # number of independently seeded models to average
+  seed: 7
+  device: auto
+  threads: 8
+
+walkforward:
+  first_test_year: 2016  # train on everything before, test one block, roll forward
+  step_years: 1          # retrain every N years
+  embargo_days: 5        # extra gap between train and test beyond the target horizon
+
+strategy:
+  allow_short: false
+  prob_threshold: 0.52   # minimum P(up) to open a long (1 - this for shorts)
+  min_edge: 0.0          # extra expected return required beyond the round-trip cost
+  target_vol: 0.15       # annualised portfolio volatility target
+  max_position: 0.20     # max |weight| per stock, fraction of equity
+  max_gross: 1.0         # max sum of |weights| (1.0 = no leverage)
+  min_trade: 0.02        # ignore weight changes smaller than this (turnover control)
+  cov_lookback: 60
+  daily_loss_limit: 0.03 # a day losing more than this -> go flat for the next decision
+  max_drawdown: 0.15     # drawdown from peak beyond this -> flat for cooldown_days
+  cooldown_days: 10
+
+optimizer:
+  trader: rules          # 'rules' = threshold strategy above; 'optimal' = OptimalTrader
+  risk_aversion: 2.0     # OptimalTrader: variance penalty (higher = smaller positions)
+  holding_periods: 5     # expected holding period; trading cost is spread over it
+  calib_window: 500      # periods of the model's past predictions used to calibrate it
+  recalibrate_every: 20  # backtests: periods between recalibrations
+  shrink_k: 4            # keep t^2/(t^2+k) of the calibrated slope (weak evidence -> small bets)
+  use_drift: false       # also bet on the average realised return (adds market exposure, not skill)
+
+costs:
+  commission_bps: 1.0    # per side, fraction of traded notional
+  slippage_bps: 4.0      # per side
+  borrow_bps_annual: 50  # cost of holding shorts
+
+broker:
+  host: 127.0.0.1
+  port: 7497             # 7497 = TWS paper, 4002 = IB Gateway paper (7496/4001 are live)
+  client_id: 17
+  mode: paper            # 'live' additionally requires env TRADER_ALLOW_LIVE=yes
+  max_order_value: 25000 # hard cap on the notional of a single order (USD)
+  max_capital: null      # REAL MONEY: size positions on at most this much equity, e.g. 2000
+  limit_offset_bps: null # e.g. 30 -> limit orders 0.3% through the last price instead of market orders
+  data_source: yfinance  # or 'ib' to pull daily bars from Interactive Brokers
+
+paths:
+  artifacts: artifacts/daily
+  reports: reports/daily
+  models: models/daily
+  logs: logs/daily

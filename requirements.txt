@@ -1,0 +1,14 @@
+numpy
+pandas>=2.1
+scipy
+scikit-learn
+statsmodels
+matplotlib
+pyarrow
+pyyaml
+yfinance
+torch
+ib_async
+pytest
+streamlit
+plotly

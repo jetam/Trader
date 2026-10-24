@@ -1,0 +1,38 @@
+trader todo 
+
+done gui for analysis and simulation-how much % more money I would have if i did what the model tells me- start date settable in gui
+how many models?
+do also large models, not basic
+simulation
+also hourly bars-new transformer
+
+train the models on cloud gpu
+
+
+
+1. Open an IBKR Pro account at interactivebrokers.com (if you're in the EU, your account is held by IBKR's EU entity). Start with a cash account rather than margin. It can't borrow or short, which matches this long-only system, and it avoids the US pattern-day-trader rule (relevant for the hourly system). Request trading permission for US stocks.
+2. Fill in the W-8BEN form if you're not a US person, which lowers US tax withheld on dividends.
+3. Deposit money. In the client portal go to Transfer & Pay → Deposit and send a bank transfer (SEPA if you bank in EUR).
+4. Convert to USD. The stocks are priced in dollars. Make a currency conversion in TWS, or a cash account may reject the orders.
+5. Enable the API. In TWS or IB Gateway logged into the live account, go to Configure → API → Settings:
+    - enable socket clients on port 7496 (TWS) or 4001 (Gateway)
+    - untick "Read-Only API"
+    - allow only 127.0.0.1
+6. Real-time data: for hourly trading, subscribe to US real-time market data in IB and set data_source: ib. Yahoo is about 15 minutes delayed.
+7. Configure the system: in config.yaml set mode: live, port: 7496, a small max_capital, and limit_offset_bps: 30.
+8. Dry run first: run python -m trader trade without --execute. It connects read-only to the live account and shows exactly what it would buy or sell. When you're happy with it:
+    export TRADER_ALLOW_LIVE=yes
+    python -m trader trade --execute
+9. Unattended operation: IB Gateway logs out daily and needs a 2FA login about once a week. People automate the restart with a tool called IBC.
+
+
+My recommended order: train the transformer on the GPU, then evaluate. Only if it beats the baselines and buy-and-hold, paper trade for a few months, and use monitor to check that the paper results match the backtest. Only then go live with a small max_capital. Taxes on trading gains depend on your country, so check how they apply to you. This is a description of how the system and IBKR work, not financial advice.
+
+The GUI is restarted with the trader selector: refresh http://localhost:8501.
+
+
+
+
+
+todo another project: ai models, each model gets internet acess, social media account,
+models run in docker, managed by k8s. - make posts, make money.

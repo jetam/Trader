@@ -18,6 +18,14 @@ def cmd_fetch(cfg, args):
 
     long = fetch_prices(cfg)
     path = prices_path(cfg.data.dir)
+    close = long["close"].unstack("symbol")
+    calendar = close[cfg.data.market["sector"]].dropna().index
+    for t in cfg.data.tickers:
+        s = close[t].reindex(calendar)
+        missing = int(s.loc[s.first_valid_index():].isna().sum()) if s.notna().any() else len(calendar)
+        if missing > 0.005 * len(calendar):
+            log.warning("%s is missing %d of %d %s bars - Yahoo returned an incomplete download; run fetch again",
+                        t, missing, len(calendar), cfg.data.interval)
     dates = long.index.get_level_values("date")
     log.info("saved %d %s bars for %d symbols (%s to %s) -> %s", len(long), cfg.data.interval,
              long.index.get_level_values(1).nunique(), dates.min(), dates.max(), path)
@@ -55,7 +63,7 @@ def cmd_evaluate(cfg, args):
     from .walkforward import load_all_predictions
 
     panel, fs = _features(cfg)
-    preds = load_all_predictions(cfg)
+    preds = load_all_predictions(cfg, fs)
     if not preds:
         raise SystemExit("no predictions found - run `python -m trader walkforward` first")
     path = run_evaluation(preds, fs, panel, cfg)

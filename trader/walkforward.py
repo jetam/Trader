@@ -77,6 +77,15 @@ def save_predictions(df: pd.DataFrame, cfg, model_name: str) -> Path:
     return path
 
 
-def load_all_predictions(cfg) -> dict:
+def load_all_predictions(cfg, fs: FeatureSet | None = None) -> dict:
+    """Saved predictions per model. With `fs`, realised targets are re-read from it, so models whose
+    predictions were made at different times (e.g. on a cloud machine) are scored on the same outcomes."""
     d = Path(cfg.paths.artifacts) / "predictions"
-    return {p.stem: pd.read_parquet(p) for p in sorted(d.glob("*.parquet"))}
+    preds = {p.stem: pd.read_parquet(p).assign(date=lambda df: pd.to_datetime(df["date"]))
+             for p in sorted(d.glob("*.parquet"))}
+    if fs is not None:
+        y = pd.DataFrame(fs.y, index=fs.dates, columns=fs.tickers).stack(future_stack=True).rename("y")
+        y.index.names = ["date", "ticker"]
+        preds = {k: df.drop(columns="y").merge(y.reset_index(), on=["date", "ticker"], how="inner")
+                 for k, df in preds.items()}
+    return preds

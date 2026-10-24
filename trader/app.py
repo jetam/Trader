@@ -52,7 +52,7 @@ def load_state(path: str):
     cfg = load_config(path)
     panel = load_panel(cfg)
     fs = features_from_config(panel, cfg)
-    preds = {k: df.assign(date=pd.to_datetime(df["date"])) for k, df in load_all_predictions(cfg).items()}
+    preds = load_all_predictions(cfg, fs)
     return cfg, panel, fs, preds
 
 
